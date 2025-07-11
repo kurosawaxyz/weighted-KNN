@@ -47,6 +47,10 @@ def train(X: torch.Tensor, y: torch.Tensor, config: Hyperparam):
     
     for epoch in tqdm(range(config.epochs), desc="Training"):
         model.train()
+
+        idx = torch.randperm(X.size(0))[:config.batch_size]
+        X = X[idx]
+        y = y[idx]
         
         # Forward pass
         prediction_scores, capacities = model(X, y)
@@ -249,7 +253,14 @@ if __name__ == "__main__":
     torch.save(model.state_dict(), model_save_path)
     print(f"Model saved to {model_save_path}")
 
-    # Save capacity values
-    capacities_save_path = f"{checkpoint_dir}/capacities.npy"
-    np.save(capacities_save_path, capacities.numpy())
-    print(f"Capacities saved to {capacities_save_path}")
+    r = []
+    for i in range(len(capacities)):
+        r.append({
+            'index': i,
+            'label': model.subsets[i],
+            'capacity_value': capacities[i].item(),
+        })
+
+    # Save results to a txt file
+    results_df = pd.DataFrame(r)
+    results_df.to_csv(os.path.join(checkpoint_dir, 'best_capacity.txt'), index=False)
