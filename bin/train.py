@@ -17,6 +17,7 @@ import sys
 import argparse
 from omegaconf import OmegaConf
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import time
 
 from Wknn.nn import WKnn
 from Wknn.capacity import compute_capacities_improved, capacity_regularization
@@ -81,7 +82,7 @@ def train(X: torch.Tensor, y: torch.Tensor, config: Hyperparam):
     
     return model, losses, accuracies
 
-def visualize_results(model, losses, accuracies, X, y):
+def visualize_results(model, losses, accuracies, X, y, save_path=None):
     """Enhanced visualization of results"""
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
     
@@ -105,12 +106,6 @@ def visualize_results(model, losses, accuracies, X, y):
         latent = model.encoder(X)
         increments = model.capacity_generator(latent)
         capacities = compute_capacities_improved(increments, model.inclusion_mat, model.subsets)
-
-        prediction_scores, capacities = model(X, y)
-        predicted_labels = prediction_scores.argmax(dim=1)
-        accuracy = (predicted_labels == y).float().mean().item()
-
-        print(f"Final Training Accuracy: {accuracy:.2%}")
     
     subset_names = ['∅' if not s else str(s) for s in model.subsets]
     
@@ -134,7 +129,6 @@ def visualize_results(model, losses, accuracies, X, y):
     ax4.grid(True)
     
     plt.tight_layout()
-    plt.show()
     
     # Print capacity details
     print("\n" + "="*50)
@@ -148,6 +142,10 @@ def visualize_results(model, losses, accuracies, X, y):
     print("="*50)
     for i, imp in enumerate(importance):
         print(f"Feature {i}: {imp.item():.4f}")
+
+    if save_path:
+        plt.savefig(save_path)
+        print(f"Results saved to {save_path}")
 
 # Main execution
 if __name__ == "__main__":
@@ -163,6 +161,13 @@ if __name__ == "__main__":
     config = Hyperparam(**cfg)
 
     data_name = args.data.lower()
+
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    # Create directory for saving checkpoints
+    checkpoint_dir = f"checkpoints/{timestamp}_{data_name}"
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    print("Checkpoint directory created at:", checkpoint_dir)
     
     if data_name == "iris":
 
@@ -228,4 +233,23 @@ if __name__ == "__main__":
     model, losses, accuracies = train(X, y, config)
     
     # Visualize results
-    visualize_results(model, losses, accuracies, X, y)
+    visualize_results(model, losses, accuracies, X, y, save_path=f"{checkpoint_dir}/results.png")
+
+    with torch.no_grad():
+        model.eval()
+        print("Evaluating final model...")
+        prediction_scores, capacities = model(X, y)
+        predicted_labels = prediction_scores.argmax(dim=1)
+        accuracy = (predicted_labels == y).float().mean().item()
+
+        print(f"Final Training Accuracy: {accuracy:.2%}")
+
+    # Save the model
+    model_save_path = f"{checkpoint_dir}/model.pth"
+    torch.save(model.state_dict(), model_save_path)
+    print(f"Model saved to {model_save_path}")
+
+    # Save capacity values
+    capacities_save_path = f"{checkpoint_dir}/capacities.npy"
+    np.save(capacities_save_path, capacities.numpy())
+    print(f"Capacities saved to {capacities_save_path}")
