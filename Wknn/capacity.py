@@ -1,7 +1,8 @@
 import torch
+import torch.nn.functional as F
 from typing import List, Tuple
 
-from Wknn.nn import Hyperparam
+from Wknn.hyperparam import Hyperparam
 
 def compute_capacities_improved(increments: torch.Tensor, inclusion_matrix: torch.Tensor, 
                                subsets: List[Tuple]) -> torch.Tensor:

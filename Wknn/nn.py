@@ -4,25 +4,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Tuple
 
-class Hyperparam:
-    """Configuration class for hyperparameters and settings"""
-    def __init__(self, **kwargs):
-        if kwargs:
-            for key, value in kwargs.items():
-                setattr(self, key, value)
-        else: 
-            self.hidden_dim = 64
-            self.latent_dim = 32
-            self.learning_rate = 1e-3
-            self.epochs = 100
-            self.batch_size = 32
-            self.dropout_rate = 0.2
-            self.weight_decay = 1e-4
-            self.k_neighbors = 5
-            self.temperature = 1.0
-            self.capacity_reg = 0.1
-            self.monotonicity_reg = 1.0
+from Wknn.capacity import compute_capacities_improved, capacity_regularization
+from Wknn.utils import get_subsets, get_inclusion_matrix
+from Wknn.sim import choquet_similarity_batch
+from Wknn.hyperparam import Hyperparam
 
 # === Feature Encoder ===
 class FeatureEncoder(nn.Module):
@@ -78,3 +65,65 @@ class CapacityGenerator(nn.Module):
         # Use sigmoid to ensure bounded output
         increments = torch.sigmoid(raw) * 0.1  # Scale down to prevent saturation
         return increments
+    
+
+# === WKnn Class ===
+class WKnn(nn.Module):
+    """Complete Choquet XAI classifier"""
+    def __init__(self, d: int, num_classes: int, config: Hyperparam):
+        super().__init__()
+        self.d = d
+        self.num_classes = num_classes
+        self.config = config
+        self.subsets = get_subsets(d)
+        self.inclusion_mat = get_inclusion_matrix(self.subsets)
+        
+        self.encoder = FeatureEncoder(d, config.hidden_dim, config.dropout_rate)
+        self.capacity_generator = CapacityGenerator(
+            config.latent_dim, len(self.subsets), config
+        )
+        
+    def forward(self, X: torch.Tensor, y: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass with leave-one-out cross-validation"""
+        batch_size = X.shape[0]
+        
+        # Generate capacities from the data
+        latent = self.encoder(X)
+        increments = self.capacity_generator(latent)
+        capacities = compute_capacities_improved(increments, self.inclusion_mat, self.subsets)
+        
+        # Leave-one-out predictions
+        predictions = []
+        
+        for i in range(batch_size):
+            query = X[i]
+            
+            # Get all other samples (leave-one-out)
+            others_idx = [j for j in range(batch_size) if j != i]
+            others = X[others_idx]
+            others_labels = y[others_idx]
+            
+            # Compute Choquet similarities
+            sims = choquet_similarity_batch(query, others, capacities, self.subsets)
+            
+            # Get k nearest neighbors
+            if len(others_idx) > self.config.k_neighbors:
+                _, top_k_idx = torch.topk(sims, self.config.k_neighbors)
+                selected_labels = others_labels[top_k_idx]
+                selected_sims = sims[top_k_idx]
+            else:
+                selected_labels = others_labels
+                selected_sims = sims
+            
+            # Weighted voting with temperature
+            weights = F.softmax(selected_sims / self.config.temperature, dim=0)
+            
+            # Compute class probabilities
+            vote = torch.zeros(self.num_classes)
+            for j, label in enumerate(selected_labels):
+                vote[label] += weights[j]
+            
+            predictions.append(vote)
+        
+        prediction_scores = torch.stack(predictions)
+        return prediction_scores, capacities
