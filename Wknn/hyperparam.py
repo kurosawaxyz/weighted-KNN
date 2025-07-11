@@ -8,7 +8,7 @@ class Hyperparam:
             self.hidden_dim = 64
             self.latent_dim = 32
             self.learning_rate = 1e-3
-            self.epochs = 10
+            self.epochs = 100
             self.batch_size = 32
             self.dropout_rate = 0.2
             self.weight_decay = 1e-4
