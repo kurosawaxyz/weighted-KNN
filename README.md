@@ -1,4 +1,4 @@
-# py-repo-template
+# Weighted-KNN
 
 ## Setup conda environment
 ```bash

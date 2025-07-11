@@ -1,0 +1,11 @@
+hidden_dim: 64
+latent_dim: 32
+learning_rate: 0.001
+epochs: 50
+batch_size: 32
+dropout_rate: 0.2
+weight_decay: 0.0001
+k_neighbors: 5
+temperature: 1.0
+capacity_reg: 0.1
+monotonicity_reg: 1.0
