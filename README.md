@@ -10,5 +10,5 @@ pip install -r requirements.txt
 
 ## Run the code
 ```bash
-python bin/train.py --data <data-name> --config <config-name>
+python bin/train.py --data <dataset-name> --config <path-to-config>
 ```
