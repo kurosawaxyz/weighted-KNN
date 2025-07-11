@@ -204,15 +204,16 @@ if __name__ == "__main__":
         # Encode species (target variable)
         penguins['species'] = le.fit_transform(penguins['species'])
 
-        penguins.reset_index(drop=True, inplace=True)
-        
         # MEMORY FIX: Limit features to prevent exponential growth
         # Select only the most important features 
-        feature_columns = ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g']
-        tmp = np.random.choice(range(len(penguins)), 100)
+        # feature_columns = ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g']
+        # tmp = np.random.choice(range(len(penguins)), 100)
 
-        X = penguins.iloc[tmp][feature_columns]
-        y = penguins.iloc[tmp]['species']
+        # X = penguins.iloc[tmp][feature_columns]
+        # y = penguins.iloc[tmp]['species']
+
+        X = penguins.drop(columns=['species'])
+        y = penguins['species']
 
         # Alternative: If you want to use all features, reduce the model complexity
         # by limiting the maximum subset size in your WKnn model
