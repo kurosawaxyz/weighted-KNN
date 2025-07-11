@@ -5,6 +5,8 @@ import seaborn as sns
 sns.set_theme(style='darkgrid')
 from tqdm import tqdm
 from sklearn.datasets import load_iris
+from palmerpenguins import load_penguins
+from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import warnings
@@ -154,21 +156,47 @@ if __name__ == "__main__":
     config = Hyperparam(**cfg)
 
     data_name = args.data.lower()
+    
+    if data_name == "iris":
 
-    # Generate sample data
-    torch.manual_seed(42)
-    iris_data = load_iris()
-    iris = pd.DataFrame(data=iris_data.data, columns=iris_data.feature_names)
-    iris['target'] = iris_data.target
-    
-    # Proper data preprocessing
-    scaler = StandardScaler()
-    data = scaler.fit_transform(iris.iloc[:, :-1].values)
-    labels = iris.iloc[:, -1].values
-    
+        # Generate sample data
+        torch.manual_seed(42)
+        iris_data = load_iris()
+        iris = pd.DataFrame(data=iris_data.data, columns=iris_data.feature_names)
+        iris['target'] = iris_data.target
+        
+        # Proper data preprocessing
+        scaler = StandardScaler()
+        data = scaler.fit_transform(iris.iloc[:, :-1].values)
+        labels = iris.iloc[:, -1].values
+        
+    elif data_name == "penguins":
+        penguins = load_penguins()
+
+        # Remove missing values
+        penguins = penguins.dropna()
+
+        # Encode categorical features
+        island_encoder = LabelEncoder()
+        sex_encoder = LabelEncoder()
+        species_encoder = LabelEncoder()
+
+        penguins['island'] = island_encoder.fit_transform(penguins['island'])
+        penguins['sex'] = sex_encoder.fit_transform(penguins['sex'])
+        penguins['species'] = species_encoder.fit_transform(penguins['species'])
+
+        # Separate features and target
+        X = penguins.drop(columns='species')
+        y = penguins['species']
+
+        # Normalize numeric features
+        scaler = StandardScaler()
+        data = scaler.fit_transform(X)
+        labels = y.values
+
     X = torch.tensor(data, dtype=torch.float32)
     y = torch.tensor(labels, dtype=torch.long)
-    
+
     # Train model
     print("Training Choquet XAI Classifier...")
     model, losses, accuracies = train(X, y, config)
