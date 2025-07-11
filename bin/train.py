@@ -11,6 +11,8 @@ import warnings
 warnings.filterwarnings('ignore')
 import os
 import sys
+import argparse
+from omegaconf import OmegaConf
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from Wknn.nn import WKnn
@@ -140,6 +142,19 @@ def visualize_results(model, losses, accuracies, X, y):
 
 # Main execution
 if __name__ == "__main__":
+    # Argument parser for command line options
+    parser = argparse.ArgumentParser(description="Train Choquet XAI Classifier")
+    parser.add_argument('--config', type=str, default="config/config.yml", help='Path to config file')
+    parser.add_argument('--data', type=str, default="iris", help='Dataset name (e.g., iris)')
+    args = parser.parse_args()
+
+    # Load the configuration file
+    cfg = OmegaConf.load(args.config)
+    # Configuration
+    config = Hyperparam(**cfg)
+
+    data_name = args.data.lower()
+
     # Generate sample data
     torch.manual_seed(42)
     iris_data = load_iris()
@@ -153,9 +168,6 @@ if __name__ == "__main__":
     
     X = torch.tensor(data, dtype=torch.float32)
     y = torch.tensor(labels, dtype=torch.long)
-    
-    # Configuration
-    config = Hyperparam()
     
     # Train model
     print("Training Choquet XAI Classifier...")
