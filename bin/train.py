@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 sns.set_theme(style='darkgrid')
 from tqdm import tqdm
 from sklearn.datasets import load_iris
@@ -169,30 +170,49 @@ if __name__ == "__main__":
         scaler = StandardScaler()
         data = scaler.fit_transform(iris.iloc[:, :-1].values)
         labels = iris.iloc[:, -1].values
-        
+    
     elif data_name == "penguins":
         penguins = load_penguins()
-
-        # Remove missing values
+        
+        # Remove missing values first
         penguins = penguins.dropna()
+        
+        # Encode categorical variables
+        le = LabelEncoder()
+        
+        # Encode island
+        penguins['island'] = le.fit_transform(penguins['island'])
+        
+        # Encode sex
+        penguins['sex'] = le.fit_transform(penguins['sex'])
+        
+        # Encode species (target variable)
+        penguins['species'] = le.fit_transform(penguins['species'])
 
-        # Encode categorical features
-        island_encoder = LabelEncoder()
-        sex_encoder = LabelEncoder()
-        species_encoder = LabelEncoder()
+        penguins.reset_index(drop=True, inplace=True)
+        
+        # MEMORY FIX: Limit features to prevent exponential growth
+        # Select only the most important features 
+        feature_columns = ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g']
+        tmp = np.random.choice(range(len(penguins)), 100)
 
-        penguins['island'] = island_encoder.fit_transform(penguins['island'])
-        penguins['sex'] = sex_encoder.fit_transform(penguins['sex'])
-        penguins['species'] = species_encoder.fit_transform(penguins['species'])
+        X = penguins.iloc[tmp][feature_columns]
+        y = penguins.iloc[tmp]['species']
 
-        # Separate features and target
-        X = penguins.drop(columns='species')
-        y = penguins['species']
-
-        # Normalize numeric features
+        # Alternative: If you want to use all features, reduce the model complexity
+        # by limiting the maximum subset size in your WKnn model
+        
+        # Proper data preprocessing
         scaler = StandardScaler()
         data = scaler.fit_transform(X)
         labels = y.values
+        
+    # Debug information
+    print(f"Using dataset: {data_name}")
+    print(f"Dataset shape: {data.shape}")
+    print(f"Number of features: {data.shape[1]}")
+    print(f"Number of possible subsets: {2**data.shape[1]}")
+    print(f"Memory estimate: ~{2**data.shape[1] * 8} bytes for subset storage")
 
     X = torch.tensor(data, dtype=torch.float32)
     y = torch.tensor(labels, dtype=torch.long)
