@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -19,12 +20,9 @@ from Wknn.hyperparam import Hyperparam
 from Wknn.dataloader import dynamic_generate_positive_gaussian_data
 
 
-def train(X: torch.Tensor, y: torch.Tensor, config: Hyperparam):
+def train(config: Hyperparam, d=4, num_classes=3):
     """Training loop with improvements"""
     torch.manual_seed(42)
-    
-    d = X.shape[1]
-    num_classes = len(torch.unique(y))
     
     model = WKnn(d, num_classes, config)
     optimizer = torch.optim.Adam(
@@ -38,10 +36,26 @@ def train(X: torch.Tensor, y: torch.Tensor, config: Hyperparam):
     
     losses = []
     accuracies = []
+
+    # Set model to training mode
+    model.train()
+
+    X, y = dynamic_generate_positive_gaussian_data(
+        dim=d,
+        nb_classes=num_classes,
+        nb_points_per_class=100,
+        seed=42
+    )
     
     for epoch in tqdm(range(config.epochs), desc="Training"):
-        model.train()
-        
+        tmp = np.random.choice(len(X), config.batch_size, replace=False)
+        X = X[tmp]
+        y = y[tmp]
+
+        # Convert to tensors
+        X = torch.tensor(X, dtype=torch.float32)
+        y = torch.tensor(y, dtype=torch.long)
+
         # Forward pass
         prediction_scores, capacities = model(X, y)
         
@@ -100,6 +114,12 @@ def visualize_results(model, losses, accuracies, X, y):
         latent = model.encoder(X)
         increments = model.capacity_generator(latent)
         capacities = compute_capacities_improved(increments, model.inclusion_mat, model.subsets)
+
+        prediction_scores, capacities = model(X, y)
+        predicted_labels = prediction_scores.argmax(dim=1)
+        accuracy = (predicted_labels == y).float().mean().item()
+        
+        print(f"Final Accuracy: {accuracy:.2%}")
     
     subset_names = ['∅' if not s else str(s) for s in model.subsets]
     
@@ -153,13 +173,16 @@ if __name__ == "__main__":
     
     X = torch.tensor(data, dtype=torch.float32)
     y = torch.tensor(labels, dtype=torch.long)
+
+    d = X.shape[1]
+    num_classes = len(torch.unique(y))
     
     # Configuration
     config = Hyperparam()
     
     # Train model
     print("Training Choquet XAI Classifier...")
-    model, losses, accuracies = train(X, y, config)
+    model, losses, accuracies = train(config, d, num_classes)
     
     # Visualize results
     visualize_results(model, losses, accuracies, X, y)
