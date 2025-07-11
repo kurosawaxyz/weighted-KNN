@@ -105,6 +105,12 @@ def visualize_results(model, losses, accuracies, X, y):
         latent = model.encoder(X)
         increments = model.capacity_generator(latent)
         capacities = compute_capacities_improved(increments, model.inclusion_mat, model.subsets)
+
+        prediction_scores, capacities = model(X, y)
+        predicted_labels = prediction_scores.argmax(dim=1)
+        accuracy = (predicted_labels == y).float().mean().item()
+
+        print(f"Final Training Accuracy: {accuracy:.2%}")
     
     subset_names = ['∅' if not s else str(s) for s in model.subsets]
     

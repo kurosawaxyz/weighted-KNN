@@ -5,3 +5,5 @@ seaborn
 torch
 ogb
 torch_geometric
+palmerpenguins
+omegaconf
