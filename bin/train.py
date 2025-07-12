@@ -18,6 +18,7 @@ import argparse
 from omegaconf import OmegaConf
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import time
+from torchinfo import summary
 
 from Wknn.nn import WKnn
 from Wknn.capacity import compute_capacities_improved, capacity_regularization
@@ -38,6 +39,11 @@ def train(X: torch.Tensor, y: torch.Tensor, config: Hyperparam):
         lr=config.learning_rate,
         weight_decay=config.weight_decay
     )
+
+    # Count the number of parameters in the pipeline
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Number of trainable parameters in the model: {num_params}")
+
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.8, patience=10
     )
@@ -253,6 +259,11 @@ if __name__ == "__main__":
     model_save_path = f"{checkpoint_dir}/model.pth"
     torch.save(model.state_dict(), model_save_path)
     print(f"Model saved to {model_save_path}")
+
+    summa = summary(model, input_data=(X, y), device="cuda" if torch.cuda.is_available() else "cpu")
+    # Save model summary to a file
+    with open(f"{checkpoint_dir}/model_summary.txt", "w") as f:
+        f.write(str(summa))
 
     r = []
     for i in range(len(capacities)):

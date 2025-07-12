@@ -7,3 +7,4 @@ ogb
 torch_geometric
 palmerpenguins
 omegaconf
+torchinfo
